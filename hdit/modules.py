@@ -15,6 +15,7 @@ def root_mean_squares(x: Tensor) -> Tensor:
     rms = torch.sqrt(x_squared.mean(dim=-1, keepdim=True))
     return rms
 
+# adopted from https://github.com/huggingface/pytorch-image-models/blob/3234daf783a78014e5ca2215ea41c4b7c3380517/timm/layers/patch_embed.py#L25
 class PatchEmbed(nn.Module):
     def __init__(self, in_channels: int, embed_dim: int, patch_size: int):
         super().__init__()
