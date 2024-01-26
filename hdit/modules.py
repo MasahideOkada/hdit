@@ -15,6 +15,17 @@ def root_mean_squares(x: Tensor) -> Tensor:
     rms = torch.sqrt(x_squared.mean(dim=-1, keepdim=True))
     return rms
 
+class PatchEmbed(nn.Module):
+    def __init__(self, in_channels: int, embed_dim: int, patch_size: int):
+        super().__init__()
+
+        self.proj = nn.Conv2d(in_channels, embed_dim, patch_size, stride=patch_size)
+    
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.proj(x)
+        x = x.flatten(start_dim=-2).transpose(-2, -1)
+        return x
+
 class RMSNorm(nn.Module):
     def __init__(self, model_dim: int, eps: float = 1e-8):
         super().__init__()
