@@ -28,11 +28,11 @@ class PatchEmbed(nn.Module):
         return x
 
 class RMSNorm(nn.Module):
-    def __init__(self, model_dim: int, eps: float = 1e-8):
+    def __init__(self, dim: int, eps: float = 1e-8):
         super().__init__()
 
         self.scale = nn.parameter.Parameter(
-            torch.ones(model_dim)[NewAxis, NewAxis, :]
+            torch.ones(dim)[NewAxis, NewAxis, :]
         )
         self.eps = eps
 
@@ -43,12 +43,12 @@ class RMSNorm(nn.Module):
         return out
 
 class GEGLU(nn.Module):
-    def __init__(self, dim_in: int, dim_out: int):
+    def __init__(self, in_dim: int, out_dim: int):
         super().__init__()
 
-        self.linear_1 = nn.Linear(dim_in, dim_out)
-        self.linear_2 = nn.Linear(dim_in, dim_out)
-    
+        self.linear_1 = nn.Linear(in_dim, out_dim)
+        self.linear_2 = nn.Linear(in_dim, out_dim)
+
     def forward(self, x: Tensor) -> Tensor:
         out_1 = self.linear_1(x)
         out_2 = self.linear_2(x)
@@ -56,16 +56,40 @@ class GEGLU(nn.Module):
         return out
 
 class FFN(nn.Module):
-    def __init__(self, model_dim: int, ffn_dim: int, dropout_p: float = 0.0):
+    def __init__(self, in_dim: int, hidden_dim: int, dropout_p: float = 0.0):
         super().__init__()
 
         self.layers = nn.Sequential(
-            GEGLU(model_dim, ffn_dim),
+            GEGLU(in_dim, hidden_dim),
             nn.Dropout(dropout_p),
-            zero_module(nn.Linear(ffn_dim, model_dim)),
+            zero_module(nn.Linear(hidden_dim, in_dim)),
         )
 
     def forward(self, x: Tensor) -> Tensor:
         out = self.layers(x)
         out = out + x
         return out
+
+class MLP(nn.Module):
+    def __init__(self, in_dim: int, hidden_dim: int, activation: str = "gelu"):
+        super().__init__()
+
+        match activation.lower():
+            case "gelu":
+                act_fn = F.gelu
+            case "relu":
+                act_fn = F.relu
+            case "silu":
+                act_fn = F.silu
+            case _:
+                raise NotImplementedError(f"`{activation}` is invalid")
+
+        self.linear_in = nn.Linear(in_dim, hidden_dim)
+        self.linear_out = nn.Linear(hidden_dim, in_dim)
+        self.act_fn = act_fn
+    
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.linear_in(x)
+        x = self.act_fn(x)
+        x = self.linear_out(x)
+        return x
