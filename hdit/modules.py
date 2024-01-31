@@ -93,3 +93,31 @@ class MLP(nn.Module):
         x = self.act_fn(x)
         x = self.linear_out(x)
         return x
+
+class PixelUnshuffleAndProjection(nn.Module):
+    def __init__(self, factor: int, in_dim: int, out_dim: int, bias: bool = False):
+        super().__init__()
+
+        self.pixel_unshuffle = nn.PixelUnshuffle(factor)
+        self.proj = nn.Linear(in_dim * (factor ** 2), out_dim, bias=bias)
+
+    def forward(self, x: Tensor) -> Tensor:
+        batch_size, num_tokens, in_dim = x.shape
+        w = int(num_tokens ** 0.5)
+        h = w
+
+        x = x.transpose(-2, -1).reshape(batch_size, in_dim, h, w)
+        x = self.pixel_unshuffle(x)
+        x = x.flatten(start_dim=-2).transpose(-2, -1)
+        x = self.proj(x)
+        return x
+
+class Lerp(nn.Module):
+    def __init__(self, initial_value: float = 0.0):
+        super().__init__()
+
+        self.coeff = nn.parameter.Parameter(torch.tensor(initial_value))
+    
+    def forward(self, x_skip: Tensor, x_upsampled: Tensor) -> Tensor:
+        x_merged = self.coeff * x_skip + (1.0 - self.coeff) * x_upsampled
+        return x_merged
