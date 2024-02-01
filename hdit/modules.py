@@ -102,18 +102,36 @@ class PixelUnshuffleAndProjection(nn.Module):
         self.proj = nn.Linear(in_dim * (factor ** 2), out_dim, bias=bias)
 
     def forward(self, x: Tensor) -> Tensor:
-        batch_size, num_tokens, in_dim = x.shape
+        batch_size, num_tokens, _ = x.shape
         w = int(num_tokens ** 0.5)
         h = w
 
-        x = x.transpose(-2, -1).reshape(batch_size, in_dim, h, w)
+        x = x.transpose(-2, -1).reshape(batch_size, -1, h, w)
         x = self.pixel_unshuffle(x)
         x = x.flatten(start_dim=-2).transpose(-2, -1)
         x = self.proj(x)
         return x
 
+class ProjectionAndPixelShuffle(nn.Module):
+    def __init__(self, factor: int, in_dim: int, out_dim: int, bias: bool = False):
+        super().__init__()
+
+        self.proj = nn.Linear(in_dim , out_dim * (factor ** 2), bias=bias)
+        self.pixel_shuffle = nn.PixelShuffle(factor)
+
+    def forward(self, x: Tensor) -> Tensor:
+        batch_size, num_tokens, _ = x.shape
+        w = int(num_tokens ** 0.5)
+        h = w
+
+        x = self.proj(x)
+        x = x.transpose(-2, -1).reshape(batch_size, -1, h, w)
+        x = self.pixel_shuffle(x)
+        x = x.flatten(start_dim=-2).transpose(-2, -1)
+        return x
+
 class Lerp(nn.Module):
-    def __init__(self, initial_value: float = 0.0):
+    def __init__(self, initial_value: float = 0.5):
         super().__init__()
 
         self.coeff = nn.parameter.Parameter(torch.tensor(initial_value))
